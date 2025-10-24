@@ -1,0 +1,81 @@
+`timescale 1ns / 100ps
+
+module downsampler_420_tb;
+
+    reg clk;
+    reg rst;
+    reg [7:0] cb_in;
+    reg [7:0] cr_in;
+    reg valid_in;
+
+    wire [7:0] cb_out;
+    wire [7:0] cr_out;
+    wire valid_out;
+
+    downsampler_420 dut (
+        .clk(clk),
+        .rst_n(rst),
+        .cb_in(cb_in),
+        .cr_in(cr_in),
+        .valid_in(valid_in),
+        .cb_out(cb_out),
+        .cr_out(cr_out),
+        .valid_out(valid_out)
+    );
+
+    always #5 clk = ~clk;
+
+    initial begin
+        clk = 1'b0;
+        rst = 1'b1;
+        valid_in = 1'b0;
+        cb_in = 8'h00;
+        cr_in = 8'h00;
+
+        #20;
+        rst = 1'b0;
+
+        $display("---------------------------------------");
+        $display("Bat dau kiem thu");
+        $display("---------------------------------------");
+
+        $display("--- Test 1: Gui 16 mau hop le lien tiep ---");
+        repeat (16) begin
+            @(negedge clk);
+            valid_in <= 1'b1;
+            cb_in <= cb_in + 8'd10;
+            cr_in <= cr_in + 8'd15;
+            $display("Thoi gian %t | Dau vao: cb_in = %d, cr_in = %d, valid_in = %b", $time, cb_in, cr_in, valid_in);
+        end
+
+        @(negedge clk);
+        valid_in <= 1'b0;
+        $display("Thoi gian %t | Dau vao: valid_in = %b (dung)", $time, valid_in);
+
+        #30;
+
+        $display("--- Test 2: Gui mau hop le khong lien tuc ---");
+        cb_in = 8'h00;
+        cr_in = 8'h00;
+        
+        @(negedge clk); valid_in <= 1'b1; cb_in <= cb_in + 1; cr_in <= cr_in + 1;
+        @(negedge clk); valid_in <= 1'b0;
+        @(negedge clk); valid_in <= 1'b1; cb_in <= cb_in + 1; cr_in <= cr_in + 1;
+        @(negedge clk); valid_in <= 1'b1; cb_in <= cb_in + 1; cr_in <= cr_in + 1;
+        @(negedge clk); valid_in <= 1'b1; cb_in <= cb_in + 1; cr_in <= cr_in + 1;
+
+        #30;
+
+        $display("---------------------------------------");
+        $display("Ket thuc kiem thu");
+        $display("---------------------------------------");
+        $stop;
+    end
+
+    always @(posedge clk) begin
+        if (valid_out) begin
+            $display("Thoi gian %t | Dau ra: cb_out = %d | cr_out = %d | valid_out = %b", $time, cb_out, cr_out, valid_out);
+        end
+    end
+
+endmodule

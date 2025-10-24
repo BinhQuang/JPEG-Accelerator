@@ -1,0 +1,5 @@
+set tool_name "ModelSim-Altera (Verilog)"
+set corner_file_list {
+	{{"Slow Model"} {JPEG.vo JPEG_v.sdo}}
+	{{"Fast Model"} {JPEG_fast.vo JPEG_v_fast.sdo}}
+}

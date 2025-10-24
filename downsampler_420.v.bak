@@ -1,0 +1,37 @@
+module downsampler_420(
+    input clk,
+    input rst,
+    input [7:0] cb_in,
+    input [7:0] cr_in,
+    input valid_in,
+    output reg [7:0] cb_out,
+    output reg [7:0] cr_out,
+    output reg valid_out
+);
+
+    reg [1:0] count;
+
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            count <= 2'b00;
+            cb_out <= 8'h00;
+            cr_out <= 8'h00;
+            valid_out <= 1'b0;
+        end else begin
+            if (valid_in) begin
+                count <= count + 1;
+                if (count == 2'b11) begin
+                    cb_out <= cb_in;
+                    cr_out <= cr_in;
+                    valid_out <= 1'b1;
+                    count <= 2'b00;
+                end else begin
+                    valid_out <= 1'b0;
+                end
+            end else begin
+                valid_out <= 1'b0;
+            end
+        end
+    end
+
+endmodule

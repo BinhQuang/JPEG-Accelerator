@@ -1,0 +1,6 @@
+
+State Machine - |rgb2ycbcr|state
+Name state.IDLE state.DONE state.CALC 
+state.IDLE 0 0 0 
+state.CALC 1 0 1 
+state.DONE 1 1 0 

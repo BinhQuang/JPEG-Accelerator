@@ -1,0 +1,156 @@
+module dct_2d (
+    input wire clk,                   // Clock input
+    input wire rst_n,                // Active-low reset
+    input wire start,                // Start signal
+    input wire [7:0] pixel_in,       // 8-bit unsigned pixel input
+    output reg signed [15:0] dct_out, // 16-bit signed DCT output
+    output reg valid_out,            // Output valid signal
+    output reg done                  // Done signal for 8x8 block
+);
+
+    // Internal registers and memories
+    reg [7:0] pixel_block [0:63];    // 8x8 pixel block storage
+    reg signed [15:0] temp_block [0:63]; // Temporary block for intermediate results
+    reg signed [15:0] dct_block [0:63];  // Final DCT block
+    reg [5:0] counter;               // Counter for 64 elements
+    reg [2:0] state;                 // FSM state
+    reg [5:0] load_idx;              // Index for loading pixels
+    reg [5:0] row_idx, col_idx;      // Indices for row-column computation
+    reg [3:0] stage;                 // Stage of DCT computation
+
+    // Zigzag order for output
+    reg [5:0] zigzag [0:63];
+    initial begin
+        zigzag = '{0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 
+                  12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 
+                  21, 28, 35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 
+                  23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 
+                  53, 60, 61, 54, 47, 55, 62, 63};
+    end
+
+    // DCT coefficients (scaled by 1024 for fixed-point precision)
+    reg signed [15:0] dct_coeff [0:7][0:7];
+    initial begin
+        dct_coeff[0] = '{362, 362, 362, 362, 362, 362, 362, 362}; // C(0) = 1/sqrt(2) * 1024
+        dct_coeff[1] = '{502, 415, 284, 97, -97, -284, -415, -502};
+        dct_coeff[2] = '{473, 191, -191, -473, -473, -191, 191, 473};
+        dct_coeff[3] = '{415, -97, -502, -284, 284, 502, 97, -415};
+        dct_coeff[4] = '{362, -362, -362, 362, 362, -362, -362, 362};
+        dct_coeff[5] = '{284, -502, 97, 415, -415, -97, 502, -284};
+        dct_coeff[6] = '{191, -473, 473, -191, -191, 473, -473, 191};
+        dct_coeff[7] = '{97, -284, 415, -502, 502, -415, 284, -97};
+    end
+
+    // State machine states
+    localparam IDLE = 3'd0,
+               LOAD = 3'd1,
+               ROW_DCT = 3'd2,
+               COL_DCT = 3'd3,
+               OUTPUT = 3'd4,
+               DONE = 3'd5;
+
+    // Main FSM
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            counter <= 6'd0;
+            load_idx <= 6'd0;
+            row_idx <= 6'd0;
+            col_idx <= 6'd0;
+            stage <= 4'd0;
+            state <= IDLE;
+            valid_out <= 1'b0;
+            done <= 1'b0;
+            dct_out <= 16'd0;
+        end else begin
+            case (state)
+                IDLE: begin
+                    valid_out <= 1'b0;
+                    done <= 1'b0;
+                    counter <= 6'd0;
+                    load_idx <= 6'd0;
+                    if (start) begin
+                        state <= LOAD;
+                    end
+                end
+
+                LOAD: begin
+                    pixel_block[load_idx] <= pixel_in - 128; // Level shift: subtract 128
+                    if (load_idx == 6'd63) begin
+                        state <= ROW_DCT;
+                        row_idx <= 6'd0;
+                        col_idx <= 6'd0;
+                        stage <= 4'd0;
+                    end else begin
+                        load_idx <= load_idx + 1;
+                    end
+                end
+
+                ROW_DCT: begin
+                    // Perform 1D DCT on row
+                    if (stage < 8) begin
+                        temp_block[row_idx*8 + stage] <= 
+                            (dct_coeff[stage][0] * $signed({1'b0, pixel_block[row_idx*8 + 0]}) +
+                             dct_coeff[stage][1] * $signed({1'b0, pixel_block[row_idx*8 + 1]}) +
+                             dct_coeff[stage][2] * $signed({1'b0, pixel_block[row_idx*8 + 2]}) +
+                             dct_coeff[stage][3] * $signed({1'b0, pixel_block[row_idx*8 + 3]}) +
+                             dct_coeff[stage][4] * $signed({1'b0, pixel_block[row_idx*8 + 4]}) +
+                             dct_coeff[stage][5] * $signed({1'b0, pixel_block[row_idx*8 + 5]}) +
+                             dct_coeff[stage][6] * $signed({1'b0, pixel_block[row_idx*8 + 6]}) +
+                             dct_coeff[stage][7] * $signed({1'b0, pixel_block[row_idx*8 + 7]})) >>> 10;
+                        stage <= stage + 1;
+                    end else begin
+                        stage <= 4'd0;
+                        if (row_idx == 6'd7) begin
+                            state <= COL_DCT;
+                            row_idx <= 6'd0;
+                        end else begin
+                            row_idx <= row_idx + 1;
+                        end
+                    end
+                end
+
+                COL_DCT: begin
+                    // Perform 1D DCT on column
+                    if (stage < 8) begin
+                        dct_block[stage*8 + col_idx] <= 
+                            (dct_coeff[stage][0] * temp_block[0*8 + col_idx] +
+                             dct_coeff[stage][1] * temp_block[1*8 + col_idx] +
+                             dct_coeff[stage][2] * temp_block[2*8 + col_idx] +
+                             dct_coeff[stage][3] * temp_block[3*8 + col_idx] +
+                             dct_coeff[stage][4] * temp_block[4*8 + col_idx] +
+                             dct_coeff[stage][5] * temp_block[5*8 + col_idx] +
+                             dct_coeff[stage][6] * temp_block[6*8 + col_idx] +
+                             dct_coeff[stage][7] * temp_block[7*8 + col_idx]) >>> 10;
+                        stage <= stage + 1;
+                    end else begin
+                        stage <= 4'd0;
+                        if (col_idx == 6'd7) begin
+                            state <= OUTPUT;
+                            counter <= 6'd0;
+                        end else begin
+                            col_idx <= col_idx + 1;
+                        end
+                    end
+                end
+
+                OUTPUT: begin
+                    valid_out <= 1'b1;
+                    dct_out <= dct_block[zigzag[counter]];
+                    if (counter == 6'd63) begin
+                        state <= DONE;
+                    end else begin
+                        counter <= counter + 1;
+                    end
+                end
+
+                DONE: begin
+                    valid_out <= 1'b0;
+                    done <= 1'b1;
+                    state <= IDLE;
+                end
+
+                default: state <= IDLE;
+            endcase
+        end
+    end
+endmodule

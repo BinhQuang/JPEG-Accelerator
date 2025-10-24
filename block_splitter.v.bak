@@ -1,0 +1,122 @@
+module block_splitter (
+    input wire clk,                   // Clock input
+    input wire rst_n,                // Active-low reset
+    input wire start,                // Start signal
+    input wire [7:0] pixel_in,       // 8-bit unsigned pixel input
+    input wire valid_in,             // Input valid signal
+    output reg [7:0] pixel_out,      // 8-bit pixel output for DCT
+    output reg valid_out,            // Output valid signal
+    output reg done,                 // Done signal for one 8x8 block
+    output reg img_done              // Done signal for entire image
+);
+
+    // Parameters (configurable for image size)
+    parameter IMG_WIDTH = 64;        // Image width (pixels)
+    parameter IMG_HEIGHT = 64;       // Image height (pixels)
+    parameter BLOCK_SIZE = 8;        // Block size (8x8)
+    parameter TOTAL_BLOCKS = (IMG_WIDTH * IMG_HEIGHT) / (BLOCK_SIZE * BLOCK_SIZE); // Total number of blocks
+
+    // Internal registers
+    reg [7:0] image_buffer [0:IMG_WIDTH*IMG_HEIGHT-1]; // Buffer to store entire image
+    reg [15:0] pixel_idx;            // Index for loading pixels
+    reg [5:0] block_row, block_col;  // Current block coordinates
+    reg [3:0] row, col;              // Current pixel coordinates within a block
+    reg [15:0] block_count;          // Counter for processed blocks
+    reg [2:0] state;                 // FSM state
+
+    // State machine states
+    localparam IDLE = 3'd0,
+               LOAD_IMAGE = 3'd1,
+               OUTPUT_BLOCK = 3'd2,
+               DONE_BLOCK = 3'd3,
+               DONE_IMAGE = 3'd4;
+
+    // Main FSM
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            pixel_idx <= 16'd0;
+            block_row <= 6'd0;
+            block_col <= 6'd0;
+            row <= 4'd0;
+            col <= 4'd0;
+            block_count <= 16'd0;
+            state <= IDLE;
+            valid_out <= 1'b0;
+            done <= 1'b0;
+            img_done <= 1'b0;
+            pixel_out <= 8'd0;
+        end else begin
+            case (state)
+                IDLE: begin
+                    valid_out <= 1'b0;
+                    done <= 1'b0;
+                    img_done <= 1'b0;
+                    pixel_idx <= 16'd0;
+                    block_row <= 6'd0;
+                    block_col <= 6'd0;
+                    row <= 4'd0;
+                    col <= 4'd0;
+                    block_count <= 16'd0;
+                    if (start && valid_in) begin
+                        state <= LOAD_IMAGE;
+                    end
+                end
+
+                LOAD_IMAGE: begin
+                    if (valid_in) begin
+                        image_buffer[pixel_idx] <= pixel_in; // Store pixel
+                        pixel_idx <= pixel_idx + 1;
+                        if (pixel_idx == IMG_WIDTH * IMG_HEIGHT - 1) begin
+                            state <= OUTPUT_BLOCK;
+                            pixel_idx <= 16'd0;
+                        end
+                    end
+                end
+
+                OUTPUT_BLOCK: begin
+                    valid_out <= 1'b1;
+                    // Compute pixel index in image: (block_row * BLOCK_SIZE + row) * IMG_WIDTH + (block_col * BLOCK_SIZE + col)
+                    pixel_out <= image_buffer[(block_row * BLOCK_SIZE + row) * IMG_WIDTH + (block_col * BLOCK_SIZE + col)] - 8'd128; // Level shift
+                    if (col == BLOCK_SIZE - 1 && row == BLOCK_SIZE - 1) begin
+                        state <= DONE_BLOCK;
+                        done <= 1'b1;
+                    end else begin
+                        if (col == BLOCK_SIZE - 1) begin
+                            col <= 4'd0;
+                            row <= row + 1;
+                        end else begin
+                            col <= col + 1;
+                        end
+                    end
+                end
+
+                DONE_BLOCK: begin
+                    valid_out <= 1'b0;
+                    done <= 1'b0;
+                    row <= 4'd0;
+                    col <= 4'd0;
+                    block_count <= block_count + 1;
+                    if (block_count == TOTAL_BLOCKS - 1) begin
+                        state <= DONE_IMAGE;
+                    end else begin
+                        // Move to next block
+                        if (block_col == (IMG_WIDTH / BLOCK_SIZE) - 1) begin
+                            block_col <= 6'd0;
+                            block_row <= block_row + 1;
+                        end else begin
+                            block_col <= block_col + 1;
+                        end
+                        state <= OUTPUT_BLOCK;
+                    end
+                end
+
+                DONE_IMAGE: begin
+                    img_done <= 1'b1;
+                    state <= IDLE;
+                end
+
+                default: state <= IDLE;
+            endcase
+        end
+    end
+endmodule

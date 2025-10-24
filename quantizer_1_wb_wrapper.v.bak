@@ -1,0 +1,77 @@
+module quantizer_1_wb_wrapper (
+    input wire CLK_I,
+    input wire RST_I,
+
+    input wire [31:0] DAT_I,
+    output reg [31:0] DAT_O,
+    input wire [31:0] ADR_I,
+    input wire WE_I,
+    input wire STB_I,
+    input wire CYC_I,
+    input wire [3:0] SEL_I,
+    output reg ACK_O
+);
+
+    // Internal wires/regs for quantizer
+    reg start;
+    reg signed [15:0] dct_in;
+    wire signed [15:0] quant_out;
+    wire valid_out;
+    wire done;
+    wire [7:0] q_monitor;
+
+    // Instantiate the quantizer
+    quantizer_1 quant_inst (
+        .clk(CLK_I),
+        .rst_n(RST_I),
+        .start(start),
+        .dct_in(dct_in),
+        .quant_out(quant_out),
+        .valid_out(valid_out),
+        .done(done),
+        .q_monitor(q_monitor)
+    );
+
+    // Acknowledge signal
+    always @(posedge CLK_I) begin
+        if (!RST_I) begin
+            ACK_O <= 1'b0;
+            DAT_O <= 32'd0;
+            dct_in <= 16'd0;
+            start <= 1'b0;
+        end else begin
+            ACK_O <= 1'b0;
+            start <= 1'b0;
+
+            if (CYC_I && STB_I && !ACK_O) begin
+                ACK_O <= 1'b1;
+
+                case (ADR_I[4:2]) // Word addressing: 0, 4, 8, etc.
+                    3'd0: begin // Write DCT input
+                        if (WE_I)
+                            dct_in <= DAT_I[15:0];
+                        else
+                            DAT_O <= {16'd0, dct_in};
+                    end
+                    3'd1: begin // Control register: bit 0 = start
+                        if (WE_I)
+                            start <= DAT_I[0];
+                        else
+                            DAT_O <= {31'd0, start};
+                    end
+                    3'd2: begin // Output quantized result
+                        DAT_O <= {{16{quant_out[15]}}, quant_out}; // Sign-extend
+                    end
+                    3'd3: begin // Status: bit 0 = valid, bit 1 = done
+                        DAT_O <= {30'd0, done, valid_out};
+                    end
+                    3'd4: begin // Monitor q_val
+                        DAT_O <= {24'd0, q_monitor};
+                    end
+                    default: DAT_O <= 32'd0;
+                endcase
+            end
+        end
+    end
+
+endmodule

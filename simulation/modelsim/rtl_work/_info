@@ -1,0 +1,165 @@
+m255
+K3
+13
+cModel Technology
+Z0 dD:\HDL\JPEG\simulation\modelsim
+vblock_splitter
+IL3WY;Vc1Vb8PjmBAD85QB1
+V7272WEA;QJ_HIV9YXNHkL2
+Z1 dD:\HDL\JPEG\simulation\modelsim
+w1748418570
+8D:/HDL/JPEG/block_splitter.v
+FD:/HDL/JPEG/block_splitter.v
+L0 1
+Z2 OV;L;10.1d;51
+r1
+31
+Z3 o-vlog01compat -work work -O0
+Z4 !s92 -vlog01compat -work work +incdir+D:/HDL/JPEG -O0
+!i10b 1
+!s100 iC8WaZCe^2ne6LgAzUYD?0
+!s85 0
+!s108 1748848973.010000
+!s107 D:/HDL/JPEG/block_splitter.v|
+!s90 -reportprogress|300|-vlog01compat|-work|work|+incdir+D:/HDL/JPEG|D:/HDL/JPEG/block_splitter.v|
+!s101 -O0
+vdct_2d
+IZA14WF3B9H2XB?6oX2A7W0
+V>Dghh=^jn]J[cHQn5m[oh3
+R1
+w1748361000
+8D:/HDL/JPEG/dct_2d.v
+FD:/HDL/JPEG/dct_2d.v
+L0 1
+R2
+r1
+31
+R3
+R4
+!i10b 1
+!s100 _U2:L`Y=8MiK:b0=`?n=`1
+!s85 0
+!s108 1748848972.930000
+!s107 D:/HDL/JPEG/dct_2d.v|
+!s90 -reportprogress|300|-vlog01compat|-work|work|+incdir+D:/HDL/JPEG|D:/HDL/JPEG/dct_2d.v|
+!s101 -O0
+vdownsampler_420
+IY1W<hVZ;=eTOXz^>DgCRC0
+V:=kB26EjaD4WAl6Q4IAz_1
+R1
+w1748797866
+8D:/HDL/JPEG/downsampler_420.v
+FD:/HDL/JPEG/downsampler_420.v
+L0 1
+R2
+r1
+31
+R3
+R4
+!i10b 1
+!s100 14[8fGj=QMl^Cn6a9W46]0
+!s85 0
+!s108 1748848972.801000
+!s107 D:/HDL/JPEG/downsampler_420.v|
+!s90 -reportprogress|300|-vlog01compat|-work|work|+incdir+D:/HDL/JPEG|D:/HDL/JPEG/downsampler_420.v|
+!s101 -O0
+ventropy_encoder
+I@X@CN=[KRA602U=EMQk?V2
+VolUe`1EBl6@;XhYTU_4O72
+R1
+w1748624345
+8D:/HDL/JPEG/entropy_encoder.v
+FD:/HDL/JPEG/entropy_encoder.v
+L0 1
+R2
+r1
+31
+R3
+R4
+!i10b 1
+!s100 N;977SKbOcknWgF==ke=[3
+!s85 0
+!s108 1748848973.051000
+!s107 D:/HDL/JPEG/entropy_encoder.v|
+!s90 -reportprogress|300|-vlog01compat|-work|work|+incdir+D:/HDL/JPEG|D:/HDL/JPEG/entropy_encoder.v|
+!s101 -O0
+vquantizer_1
+IO@Y^26l5=[bLQ@5ilOiIj2
+V=ahHjLX<zLW`g>TT=Y6f>2
+R1
+w1748099414
+8D:/HDL/JPEG/quantizer_1.v
+FD:/HDL/JPEG/quantizer_1.v
+L0 1
+R2
+r1
+31
+R3
+R4
+!i10b 1
+!s100 J_jYV0]0eel[iUeJ^L?2g1
+!s85 0
+!s108 1748848972.888000
+!s107 D:/HDL/JPEG/quantizer_1.v|
+!s90 -reportprogress|300|-vlog01compat|-work|work|+incdir+D:/HDL/JPEG|D:/HDL/JPEG/quantizer_1.v|
+!s101 -O0
+vrgb2ycbcr
+IfP_SDkILn4agdf6z8aBM72
+V?7^IP@4:AB<Xzg?U9A3DM0
+R1
+w1748848781
+8D:/HDL/JPEG/rgb2ycbcr.v
+FD:/HDL/JPEG/rgb2ycbcr.v
+L0 1
+R2
+r1
+31
+R3
+R4
+!i10b 1
+!s100 j:YHHhGzW>KfbN62^8Y`X2
+!s85 0
+!s108 1748848972.846000
+!s107 D:/HDL/JPEG/rgb2ycbcr.v|
+!s90 -reportprogress|300|-vlog01compat|-work|work|+incdir+D:/HDL/JPEG|D:/HDL/JPEG/rgb2ycbcr.v|
+!s101 -O0
+vtb_top_module_jpeg
+!i10b 1
+!s100 2z60Jd>eh_QOKM5eoaZd;2
+IOG?Zg>T]?c9C3@XUYjciR2
+V5dB[9:Pll]lW^>ToWAlTN0
+R1
+w1748848751
+8D:/HDL/JPEG/tb_top_module_jpeg.v
+FD:/HDL/JPEG/tb_top_module_jpeg.v
+L0 3
+R2
+r1
+!s85 0
+31
+!s108 1748848973.135000
+!s107 D:/HDL/JPEG/tb_top_module_jpeg.v|
+!s90 -reportprogress|300|-vlog01compat|-work|work|+incdir+D:/HDL/JPEG|D:/HDL/JPEG/tb_top_module_jpeg.v|
+!s101 -O0
+R3
+R4
+vtop_module_jpeg
+In?3GfQA7T0j=n98cd8H@e0
+VBf1C`jOgl;Y1REk1UPgPF2
+R1
+w1748848926
+8D:/HDL/JPEG/top_module_jpeg.v
+FD:/HDL/JPEG/top_module_jpeg.v
+L0 1
+R2
+r1
+31
+R3
+R4
+!i10b 1
+!s100 8@Tb8zB_WW@c8FbDLo<Nd1
+!s85 0
+!s108 1748848973.092000
+!s107 D:/HDL/JPEG/top_module_jpeg.v|
+!s90 -reportprogress|300|-vlog01compat|-work|work|+incdir+D:/HDL/JPEG|D:/HDL/JPEG/top_module_jpeg.v|
+!s101 -O0

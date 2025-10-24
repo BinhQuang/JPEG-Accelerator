@@ -1,0 +1,73 @@
+module rgb2ycbcr (
+    input  wire        clk,
+    input  wire        rst_n,
+    input  wire        start,
+    input  wire [7:0]  R,
+    input  wire [7:0]  G,
+    input  wire [7:0]  B,
+    output reg  [7:0]  Y,
+    output reg  [7:0]  Cb,
+    output reg  [7:0]  Cr,
+    output reg         done
+);
+
+    // Fixed-point scale factor (multiplied by 256)
+    // Y  =  0.299R + 0.587G + 0.114B
+    // Cb = -0.1687R - 0.3313G + 0.5B + 128
+    // Cr =  0.5R - 0.4187G - 0.0813B + 128
+
+    localparam  K_Y_R  =  77;   // 0.299 * 256
+    localparam  K_Y_G  = 150;   // 0.587 * 256
+    localparam  K_Y_B  =  29;   // 0.114 * 256
+
+    localparam  K_CB_R = -43;   // -0.1687 * 256
+    localparam  K_CB_G = -85;   // -0.3313 * 256
+    localparam  K_CB_B = 128;   //  0.5 * 256
+
+    localparam  K_CR_R = 128;   //  0.5 * 256
+    localparam  K_CR_G = -107;  // -0.4187 * 256
+    localparam  K_CR_B = -21;   // -0.0813 * 256
+
+    reg [2:0] state;
+    localparam IDLE  = 3'd0,
+               CALC  = 3'd1,
+               DONE  = 3'd2;
+
+    reg signed [15:0] y_temp, cb_temp, cr_temp;
+
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            Y   <= 8'd0;
+            Cb  <= 8'd0;
+            Cr  <= 8'd0;
+            done <= 1'b0;
+            state <= IDLE;
+        end else begin
+            case (state)
+                IDLE: begin
+                    done <= 0;
+                    if (start)
+                        state <= CALC;
+                end
+
+                CALC: begin
+                    // Convert 8-bit unsigned RGB to signed for multiply
+                    y_temp  <= (K_Y_R  * R) + (K_Y_G  * G) + (K_Y_B  * B);
+                    cb_temp <= (K_CB_R * R) + (K_CB_G * G) + (K_CB_B * B) + (128 * 256);
+                    cr_temp <= (K_CR_R * R) + (K_CR_G * G) + (K_CR_B * B) + (128 * 256);
+                    state   <= DONE;
+                end
+
+                DONE: begin
+                    // Shift right 8 bits to divide by 256 (restore original scale)
+                    Y  <= (y_temp  >>> 8);
+                    Cb <= (cb_temp >>> 8);
+                    Cr <= (cr_temp >>> 8);
+                    done <= 1'b1;
+                    state <= IDLE;
+                end
+            endcase
+        end
+    end
+
+endmodule

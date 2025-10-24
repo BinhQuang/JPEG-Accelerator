@@ -1,0 +1,296 @@
+module jpeg_encoder (
+    input wire clk,                   // Đồng hồ
+    input wire rst_n,                // Reset active-low
+    input wire start,                // Tín hiệu bắt đầu
+    input wire [7:0] R_in,           // Đầu vào Red (8-bit)
+    input wire [7:0] G_in,           // Đầu vào Green (8-bit)
+    input wire [7:0] B_in,           // Đầu vào Blue (8-bit)
+    input wire valid_in,             // Tín hiệu đầu vào hợp lệ
+    output reg [15:0] code_out,      // Mã Huffman đầu ra
+    output reg [3:0] code_len,       // Độ dài mã Huffman
+    output reg valid_out,            // Tín hiệu đầu ra hợp lệ
+    output reg img_done              // Tín hiệu hoàn tất xử lý ảnh
+);
+
+    // Tín hiệu nội bộ
+    wire [7:0] Y, Cb, Cr;            // Đầu ra từ rgb2ycbcr
+    wire ycbcr_done;                 // Tín hiệu done từ rgb2ycbcr
+    wire [7:0] pixel_out_y, pixel_out_cb, pixel_out_cr; // Pixel đầu ra từ block_splitter
+    wire valid_out_y, valid_out_cb, valid_out_cr; // Tín hiệu hợp lệ từ block_splitter
+    wire done_y, done_cb, done_cr;   // Tín hiệu done từ block_splitter
+    wire img_done_y, img_done_cb, img_done_cr; // Tín hiệu hoàn tất ảnh từ block_splitter
+    wire [7:0] cb_down, cr_down;     // Đầu ra từ downsampler_420
+    wire valid_down;                 // Tín hiệu hợp lệ từ downsampler_420
+    wire signed [15:0] dct_out_y, dct_out_cb, dct_out_cr; // Đầu ra DCT
+    wire valid_dct_y, valid_dct_cb, valid_dct_cr; // Tín hiệu hợp lệ từ dct_2d
+    wire done_dct_y, done_dct_cb, done_dct_cr; // Tín hiệu done từ dct_2d
+    wire signed [15:0] quant_out_y, quant_out_cb, quant_out_cr; // Đầu ra lượng tử hóa
+    wire valid_quant_y, valid_quant_cb, valid_quant_cr; // Tín hiệu hợp lệ từ quantizer_1
+    wire done_quant_y, done_quant_cb, done_quant_cr; // Tín hiệu done từ quantizer_1
+    wire [15:0] code_y, code_cb, code_cr; // Mã Huffman từ entropy_encoder
+    wire [3:0] len_y, len_cb, len_cr;    // Độ dài mã Huffman
+    wire valid_enc_y, valid_enc_cb, valid_enc_cr; // Tín hiệu hợp lệ từ entropy_encoder
+    wire [7:0] q_monitor_y, q_monitor_cb, q_monitor_cr; // Giám sát giá trị lượng tử hóa
+
+    // Trạng thái FSM
+    reg [2:0] state;
+    localparam IDLE = 3'd0,
+               PROCESS_Y = 3'd1,
+               PROCESS_CB = 3'd2,
+               PROCESS_CR = 3'd3,
+               DONE = 3'd4;
+
+    // Biến đếm chỉ số cho entropy encoder (khai báo duy nhất)
+    reg [5:0] counter_y;  // Đếm chỉ số cho Y
+    reg [5:0] counter_cb; // Đếm chỉ số cho Cb
+    reg [5:0] counter_cr; // Đếm chỉ số cho Cr
+
+    // Khởi tạo các module con
+    rgb2ycbcr u_rgb2ycbcr (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(start),
+        .R(R_in),
+        .G(G_in),
+        .B(B_in),
+        .Y(Y),
+        .Cb(Cb),
+        .Cr(Cr),
+        .done(ycbcr_done)
+    );
+
+    block_splitter u_block_splitter_y (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(ycbcr_done),
+        .pixel_in(Y),
+        .valid_in(ycbcr_done),
+        .pixel_out(pixel_out_y),
+        .valid_out(valid_out_y),
+        .done(done_y),
+        .img_done(img_done_y)
+    );
+
+    downsampler_420 u_downsampler_420 (
+        .clk(clk),
+        .rst(rst_n),
+        .cb_in(Cb),
+        .cr_in(Cr),
+        .valid_in(ycbcr_done),
+        .cb_out(cb_down),
+        .cr_out(cr_down),
+        .valid_out(valid_down)
+    );
+
+    block_splitter u_block_splitter_cb (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(valid_down),
+        .pixel_in(cb_down),
+        .valid_in(valid_down),
+        .pixel_out(pixel_out_cb),
+        .valid_out(valid_out_cb),
+        .done(done_cb),
+        .img_done(img_done_cb)
+    );
+
+    block_splitter u_block_splitter_cr (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(valid_down),
+        .pixel_in(cr_down),
+        .valid_in(valid_down),
+        .pixel_out(pixel_out_cr),
+        .valid_out(valid_out_cr),
+        .done(done_cr),
+        .img_done(img_done_cr)
+    );
+
+    dct_2d u_dct_2d_y (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(done_y),
+        .pixel_in(pixel_out_y),
+        .dct_out(dct_out_y),
+        .valid_out(valid_dct_y),
+        .done(done_dct_y)
+    );
+
+    dct_2d u_dct_2d_cb (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(done_cb),
+        .pixel_in(pixel_out_cb),
+        .dct_out(dct_out_cb),
+        .valid_out(valid_dct_cb),
+        .done(done_dct_cb)
+    );
+
+    dct_2d u_dct_2d_cr (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(done_cr),
+        .pixel_in(pixel_out_cr),
+        .dct_out(dct_out_cr),
+        .valid_out(valid_dct_cr),
+        .done(done_dct_cr)
+    );
+
+    quantizer_1 u_quantizer_1_y (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(done_dct_y),
+        .dct_in(dct_out_y),
+        .quant_out(quant_out_y),
+        .valid_out(valid_quant_y),
+        .done(done_quant_y),
+        .q_monitor(q_monitor_y)
+    );
+
+    quantizer_1 u_quantizer_1_cb (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(done_dct_cb),
+        .dct_in(dct_out_cb),
+        .quant_out(quant_out_cb),
+        .valid_out(valid_quant_cb),
+        .done(done_quant_cb),
+        .q_monitor(q_monitor_cb)
+    );
+
+    quantizer_1 u_quantizer_1_cr (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(done_dct_cr),
+        .dct_in(dct_out_cr),
+        .quant_out(quant_out_cr),
+        .valid_out(valid_quant_cr),
+        .done(done_quant_cr),
+        .q_monitor(q_monitor_cr)
+    );
+
+    entropy_encoder u_entropy_encoder_y (
+        .clk(clk),
+        .rst(rst_n),
+        .in_valid(valid_quant_y),
+        .in_index(counter_y),
+        .in_coeff(quant_out_y),
+        .out_valid(valid_enc_y),
+        .out_code(code_y),
+        .out_len(len_y)
+    );
+
+    entropy_encoder u_entropy_encoder_cb (
+        .clk(clk),
+        .rst(rst_n),
+        .in_valid(valid_quant_cb),
+        .in_index(counter_cb),
+        .in_coeff(quant_out_cb),
+        .out_valid(valid_enc_cb),
+        .out_code(code_cb),
+        .out_len(len_cb)
+    );
+
+    entropy_encoder u_entropy_encoder_cr (
+        .clk(clk),
+        .rst(rst_n),
+        .in_valid(valid_quant_cr),
+        .in_index(counter_cr),
+        .in_coeff(quant_out_cr),
+        .out_valid(valid_enc_cr),
+        .out_code(code_cr),
+        .out_len(len_cr)
+    );
+
+    // Logic đếm chỉ số cho entropy encoder
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            counter_y <= 6'd0;
+            counter_cb <= 6'd0;
+            counter_cr <= 6'd0;
+        end else begin
+            if (valid_quant_y && done_quant_y)
+                counter_y <= 6'd0;
+            else if (valid_quant_y)
+                counter_y <= counter_y + 1;
+
+            if (valid_quant_cb && done_quant_cb)
+                counter_cb <= 6'd0;
+            else if (valid_quant_cb)
+                counter_cb <= counter_cb + 1;
+
+            if (valid_quant_cr && done_quant_cr)
+                counter_cr <= 6'd0;
+            else if (valid_quant_cr)
+                counter_cr <= counter_cr + 1;
+        end
+    end
+
+    // FSM điều khiển chính
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            state <= IDLE;
+            valid_out <= 1'b0;
+            img_done <= 1'b0;
+            code_out <= 16'd0;
+            code_len <= 4'd0;
+        end else begin
+            case (state)
+                IDLE: begin
+                    valid_out <= 1'b0;
+                    img_done <= 1'b0;
+                    if (start && valid_in) begin
+                        state <= PROCESS_Y;
+                    end
+                end
+
+                PROCESS_Y: begin
+                    if (valid_enc_y) begin
+                        valid_out <= 1'b1;
+                        code_out <= code_y;
+                        code_len <= len_y;
+                    end else begin
+                        valid_out <= 1'b0;
+                    end
+                    if (img_done_y) begin
+                        state <= PROCESS_CB;
+                    end
+                end
+
+                PROCESS_CB: begin
+                    if (valid_enc_cb) begin
+                        valid_out <= 1'b1;
+                        code_out <= code_cb;
+                        code_len <= len_cb;
+                    end else begin
+                        valid_out <= 1'b0;
+                    end
+                    if (img_done_cb) begin
+                        state <= PROCESS_CR;
+                    end
+                end
+
+                PROCESS_CR: begin
+                    if (valid_enc_cr) begin
+                        valid_out <= 1'b1;
+                        code_out <= code_cr;
+                        code_len <= len_cr;
+                    end else begin
+                        valid_out <= 1'b0;
+                    end
+                    if (img_done_cr) begin
+                        state <= DONE;
+                    end
+                end
+
+                DONE: begin
+                    valid_out <= 1'b0;
+                    img_done <= 1'b1;
+                    state <= IDLE;
+                end
+
+                default: state <= IDLE;
+            endcase
+        end
+    end
+endmodule

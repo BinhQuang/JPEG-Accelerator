@@ -1,0 +1,57 @@
+module quantization (
+    input clk,
+    input reset,
+    input enable,
+    input signed [11:0] dct_coeff [0:7][0:7],  // Các hệ số DCT đầu vào 8x8
+    input [7:0] quant_table [0:7][0:7],        // Bảng lượng tử 8x8
+    output reg signed [11:0] quant_coeff [0:7][0:7],  // Các hệ số đã lượng tử hóa
+    output reg done                            // Tín hiệu báo hoàn thành
+);
+
+    // Biến đếm để điều khiển quá trình lượng tử hóa
+    reg [2:0] i, j;
+    reg processing;
+
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            // Reset các giá trị
+            for (i = 0; i < 8; i = i + 1) begin
+                for (j = 0; j < 8; j = j + 1) begin
+                    quant_coeff[i][j] <= 0;
+                end
+            end
+            done <= 0;
+            processing <= 0;
+            i <= 0;
+            j <= 0;
+        end else if (enable && !processing && !done) begin
+            // Bắt đầu quá trình lượng tử hóa
+            processing <= 1;
+            i <= 0;
+            j <= 0;
+            done <= 0;
+        end else if (processing) begin
+            // Thực hiện lượng tử hóa từng hệ số
+            if (quant_table[i][j] == 0) begin
+                quant_coeff[i][j] <= dct_coeff[i][j];  // Tránh chia cho 0
+            end else begin
+                quant_coeff[i][j] <= dct_coeff[i][j] / quant_table[i][j];
+            end
+            
+            // Di chuyển đến hệ số tiếp theo
+            if (j == 7) begin
+                j <= 0;
+                if (i == 7) begin
+                    // Đã xử lý xong tất cả các hệ số
+                    processing <= 0;
+                    done <= 1;
+                end else begin
+                    i <= i + 1;
+                end
+            end else begin
+                j <= j + 1;
+            end
+        end
+    end
+
+endmodule

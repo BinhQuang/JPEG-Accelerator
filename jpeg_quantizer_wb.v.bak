@@ -1,0 +1,48 @@
+module jpeg_quantizer_wb (
+    input  wire        wb_clk_i,
+    input  wire        wb_rst_i,
+    input  wire [5:0]  wb_adr_i,
+    input  wire        wb_we_i,
+    input  wire        wb_stb_i,
+    input  wire        wb_cyc_i,
+    input  wire signed [11:0] wb_dat_i,
+    output wire signed [7:0]  wb_dat_o,
+    output reg         wb_ack_o
+);
+
+    wire signed [7:0] q_result;
+    reg signed [11:0] dct_input;
+    reg [5:0]         addr_input;
+
+    reg               write_req;
+
+    assign wb_dat_o = q_result;
+
+    jpeg_quantizer core (
+        .clk(wb_clk_i),
+        .rst(wb_rst_i),
+        .addr(addr_input),
+        .dct_in(dct_input),
+        .q_out(q_result)
+    );
+
+    always @(posedge wb_clk_i or posedge wb_rst_i) begin
+        if (wb_rst_i) begin
+            wb_ack_o    <= 0;
+            dct_input   <= 0;
+            addr_input  <= 0;
+            write_req   <= 0;
+        end else begin
+            wb_ack_o <= 0;
+
+            if (wb_stb_i && wb_cyc_i && !wb_ack_o) begin
+                wb_ack_o <= 1;
+                if (wb_we_i) begin
+                    dct_input  <= wb_dat_i;
+                    addr_input <= wb_adr_i[5:0]; // lấy địa chỉ pixel
+                end
+            end
+        end
+    end
+
+endmodule

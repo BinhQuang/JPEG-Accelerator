@@ -1,0 +1,251 @@
+module top_module_jpeg (
+    input  wire        clk,          // Clock input
+    input  wire        rst_n,        // Active-low reset
+    input  wire        start,        // Start signal
+    input  wire [7:0]  R,            // 8-bit Red input
+    input  wire [7:0]  G,            // 8-bit Green input
+    input  wire [7:0]  B,            // 8-bit Blue input
+    output reg  [15:0] out_code,     // 16-bit encoded output (Y channel)
+    output reg  [3:0]  out_len,      // Code length (Y channel)
+    output reg         out_valid,    // Output valid signal (Y channel)
+    output reg         img_done       // Image processing done signal
+);
+
+    // Parameters
+    parameter IMG_WIDTH = 64;        // Image width (pixels)
+    parameter IMG_HEIGHT = 64;       // Image height (pixels)
+
+    // Signals for rgb2ycbcr to block_splitter
+    wire [7:0]  y_out, cb_out, cr_out;
+    wire        rgb_done;
+
+    // Signals for downsampler_420
+    wire [7:0]  cb_ds_out, cr_ds_out;
+    wire        ds_valid_out;
+
+    // Signals for Y channel (block_splitter -> dct_2d -> quantizer_1 -> entropy_encoder)
+    wire [7:0]  y_pixel_out;
+    wire        y_valid_out, y_done, y_img_done;
+    wire signed [15:0] y_dct_out;
+    wire        y_dct_valid_out, y_dct_done;
+    wire signed [15:0] y_quant_out;
+    wire        y_quant_valid_out, y_quant_done;
+    wire [7:0]  y_q_monitor;
+
+    // Signals for Cb channel (block_splitter -> dct_2d -> quantizer_1)
+    wire [7:0]  cb_pixel_out;
+    wire        cb_valid_out, cb_done, cb_img_done;
+    wire signed [15:0] cb_dct_out;
+    wire        cb_dct_valid_out, cb_dct_done;
+    wire signed [15:0] cb_quant_out;
+    wire        cb_quant_valid_out, cb_quant_done;
+    wire [7:0]  cb_q_monitor;
+
+    // Signals for Cr channel (block_splitter -> dct_2d -> quantizer_1)
+    wire [7:0]  cr_pixel_out;
+    wire        cr_valid_out, cr_done, cr_img_done;
+    wire signed [15:0] cr_dct_out;
+    wire        cr_dct_valid_out, cr_dct_done;
+    wire signed [15:0] cr_quant_out;
+    wire        cr_quant_valid_out, cr_quant_done;
+    wire [7:0]  cr_q_monitor;
+
+    // Signals for entropy_encoder (Y channel only)
+    wire [15:0] y_entropy_out;
+    wire [3:0]  y_entropy_len;
+    wire        y_entropy_valid;
+
+    // Instantiate rgb2ycbcr
+    rgb2ycbcr rgb2ycbcr_inst (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(start),
+        .R(R),
+        .G(G),
+        .B(B),
+        .Y(y_out),
+        .Cb(cb_out),
+        .Cr(cr_out),
+        .done(rgb_done)
+    );
+
+    // Instantiate downsampler_420 for Cb and Cr
+    downsampler_420 downsampler_inst (
+        .clk(clk),
+        .rst_n(rst_n),
+        .cb_in(cb_out),
+        .cr_in(cr_out),
+        .valid_in(rgb_done),
+        .cb_out(cb_ds_out),
+        .cr_out(cr_ds_out),
+        .valid_out(ds_valid_out)
+    );
+
+    // Instantiate block_splitter for Y channel
+    block_splitter #(
+        .IMG_WIDTH(IMG_WIDTH),
+        .IMG_HEIGHT(IMG_HEIGHT),
+        .BLOCK_SIZE(8),
+        .TOTAL_BLOCKS((IMG_WIDTH * IMG_HEIGHT) / (8 * 8))
+    ) block_splitter_y (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(start),
+        .pixel_in(y_out),
+        .valid_in(rgb_done),
+        .pixel_out(y_pixel_out),
+        .valid_out(y_valid_out),
+        .done(y_done),
+        .img_done(y_img_done)
+    );
+
+    // Instantiate block_splitter for Cb channel (downsampled)
+    block_splitter #(
+        .IMG_WIDTH(IMG_WIDTH/2),
+        .IMG_HEIGHT(IMG_HEIGHT/2),
+        .BLOCK_SIZE(8),
+        .TOTAL_BLOCKS((IMG_WIDTH * IMG_HEIGHT) / (4 * 8 * 8))
+    ) block_splitter_cb (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(start),
+        .pixel_in(cb_ds_out),
+        .valid_in(ds_valid_out),
+        .pixel_out(cb_pixel_out),
+        .valid_out(cb_valid_out),
+        .done(cb_done),
+        .img_done(cb_img_done)
+    );
+
+    // Instantiate block_splitter for Cr channel (downsampled)
+    block_splitter #(
+        .IMG_WIDTH(IMG_WIDTH/2),
+        .IMG_HEIGHT(IMG_HEIGHT/2),
+        .BLOCK_SIZE(8),
+        .TOTAL_BLOCKS((IMG_WIDTH * IMG_HEIGHT) / (4 * 8 * 8))
+    ) block_splitter_cr (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(start),
+        .pixel_in(cr_ds_out),
+        .valid_in(ds_valid_out),
+        .pixel_out(cr_pixel_out),
+        .valid_out(cr_valid_out),
+        .done(cr_done),
+        .img_done(cr_img_done)
+    );
+
+    // Instantiate dct_2d for Y channel
+    dct_2d dct_y (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(y_done),
+        .pixel_in(y_pixel_out),
+        .dct_out(y_dct_out),
+        .valid_out(y_dct_valid_out),
+        .done(y_dct_done)
+    );
+
+    // Instantiate dct_2d for Cb channel
+    dct_2d dct_cb (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(cb_done),
+        .pixel_in(cb_pixel_out),
+        .dct_out(cb_dct_out),
+        .valid_out(cb_dct_valid_out),
+        .done(cb_dct_done)
+    );
+
+    // Instantiate dct_2d for Cr channel
+    dct_2d dct_cr (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(cr_done),
+        .pixel_in(cr_pixel_out),
+        .dct_out(cr_dct_out),
+        .valid_out(cr_dct_valid_out),
+        .done(cr_dct_done)
+    );
+
+    // Instantiate quantizer_1 for Y channel
+    quantizer_1 quantizer_y (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(y_dct_done),
+        .dct_in(y_dct_out),
+        .quant_out(y_quant_out),
+        .valid_out(y_quant_valid_out),
+        .done(y_quant_done),
+        .q_monitor(y_q_monitor)
+    );
+
+    // Instantiate quantizer_1 for Cb channel
+    quantizer_1 quantizer_cb (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(cb_dct_done),
+        .dct_in(cb_dct_out),
+        .quant_out(cb_quant_out),
+        .valid_out(cb_quant_valid_out),
+        .done(cb_quant_done),
+        .q_monitor(cb_q_monitor)
+    );
+
+    // Instantiate quantizer_1 for Cr channel
+    quantizer_1 quantizer_cr (
+        .clk(clk),
+        .rst_n(rst_n),
+        .start(cr_dct_done),
+        .dct_in(cr_dct_out),
+        .quant_out(cr_quant_out),
+        .valid_out(cr_quant_valid_out),
+        .done(cr_quant_done),
+        .q_monitor(cr_q_monitor)
+    );
+
+    // Instantiate entropy_encoder for Y channel
+    entropy_encoder entropy_y (
+        .clk(clk),
+        .rst(rst_n),
+        .in_valid(y_quant_valid_out),
+        .in_index(counter_y),
+        .in_coeff(y_quant_out),
+        .out_valid(y_entropy_valid),
+        .out_code(y_entropy_out),
+        .out_len(y_entropy_len)
+    );
+
+    // Counter for entropy encoder index (Y channel)
+    reg [5:0] counter_y;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            counter_y <= 6'd0;
+        end else if (y_quant_valid_out) begin
+            if (counter_y == 6'd63) begin
+                counter_y <= 6'd0;
+            end else begin
+                counter_y <= counter_y + 1;
+            end
+        end
+    end
+
+    // Output logic
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            out_code <= 16'd0;
+            out_len <= 4'd0;
+            out_valid <= 1'b0;
+            img_done <= 1'b0;
+        end else begin
+            // Pass through entropy encoder output for Y channel
+            out_code <= y_entropy_out;
+            out_len <= y_entropy_len;
+            out_valid <= y_entropy_valid;
+
+            // Image done when all channels complete
+            img_done <= y_img_done && cb_img_done && cr_img_done;
+        end
+    end
+
+endmodule

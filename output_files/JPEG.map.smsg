@@ -1,0 +1,7 @@
+Info (10281): Verilog HDL Declaration information at rgb2ycbcr.v(12): object "done" differs only in case from object "DONE" in the same scope
+Info (10281): Verilog HDL Declaration information at level_shifter.v(12): object "done" differs only in case from object "DONE" in the same scope
+Warning (10268): Verilog HDL information at quantizer_1.v(28): always construct contains both blocking and non-blocking assignments
+Info (10281): Verilog HDL Declaration information at quantizer_1.v(8): object "done" differs only in case from object "DONE" in the same scope
+Info (10281): Verilog HDL Declaration information at dct_2d.v(9): object "done" differs only in case from object "DONE" in the same scope
+Warning (10268): Verilog HDL information at entropy_encoder.v(74): always construct contains both blocking and non-blocking assignments
+Info (10281): Verilog HDL Declaration information at bamodule.v(10): object "done" differs only in case from object "DONE" in the same scope

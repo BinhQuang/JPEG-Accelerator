@@ -1,0 +1,122 @@
+`timescale 1ns / 1ps
+
+module tb_quantizer_1_wb_wrapper();
+
+    reg clk;
+    reg rst;
+    reg [31:0] dat_i;
+    wire [31:0] dat_o;
+    reg [31:0] adr_i;
+    reg we_i;
+    reg stb_i;
+    reg cyc_i;
+    reg [3:0] sel_i;
+    wire ack_o;
+
+    // Instantiate the wrapper
+    quantizer_1_wb_wrapper dut (
+        .CLK_I(clk),
+        .RST_I(rst),
+        .DAT_I(dat_i),
+        .DAT_O(dat_o),
+        .ADR_I(adr_i),
+        .WE_I(we_i),
+        .STB_I(stb_i),
+        .CYC_I(cyc_i),
+        .SEL_I(sel_i),
+        .ACK_O(ack_o)
+    );
+
+    // Clock generation
+    initial clk = 0;
+    always #5 clk = ~clk; // 100MHz clock
+
+    // WB Bus Task Helpers
+    task wb_write;
+        input [31:0] addr;
+        input [31:0] data;
+        begin
+            @(posedge clk);
+            adr_i <= addr;
+            dat_i <= data;
+            we_i <= 1;
+            stb_i <= 1;
+            cyc_i <= 1;
+            sel_i <= 4'b1111;
+            wait (ack_o);
+            @(posedge clk);
+            stb_i <= 0;
+            cyc_i <= 0;
+        end
+    endtask
+
+    task wb_read;
+        input [31:0] addr;
+        output [31:0] data_out;
+        begin
+            @(posedge clk);
+            adr_i <= addr;
+            we_i <= 0;
+            stb_i <= 1;
+            cyc_i <= 1;
+            sel_i <= 4'b1111;
+            wait (ack_o);
+            @(posedge clk);
+            data_out <= dat_o;
+            stb_i <= 0;
+            cyc_i <= 0;
+        end
+    endtask
+
+    integer i;
+    reg [31:0] result;
+    reg [31:0] status;
+    reg [31:0] qval;
+
+    initial begin
+        // Initialize
+        rst = 1;
+        adr_i = 0;
+        dat_i = 0;
+        we_i = 0;
+        stb_i = 0;
+        cyc_i = 0;
+        sel_i = 4'b0000;
+
+        #20;
+        rst = 0; // Release reset
+
+        #20;
+
+        // Test case: Input DCT value = -210
+        $display("Writing DCT input = -210");
+        wb_write(32'h00, -210);         // Address 0x00: dct_in
+
+        $display("Starting quantization");
+        wb_write(32'h04, 1);            // Address 0x04: start = 1
+
+        // Wait for done signal
+        status = 0;
+        repeat (100) begin
+            wb_read(32'h0C, status);    // Address 0x0C: read status
+            if (status[1]) begin
+                $display("Quantization done.");
+                disable wait_done;
+            end
+            #10;
+        end
+        wait_done:;
+
+        // Read result
+        wb_read(32'h08, result);        // Address 0x08: quant_out
+        $display("Quantized Output: %0d", $signed(result));
+
+        // Read q_val
+        wb_read(32'h10, qval);          // Address 0x10: q_monitor
+        $display("Q_Val used: %0d", qval);
+
+        #100;
+        $finish;
+    end
+
+endmodule

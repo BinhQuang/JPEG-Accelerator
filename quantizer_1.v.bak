@@ -1,0 +1,90 @@
+module quantizer_1 (
+    input wire clk,                   // Clock input
+    input wire rst_n,                // Active-low reset
+    input wire start,                // Start signal
+    input wire signed [15:0] dct_in, // 16-bit signed DCT input
+    input wire [7:0] quant_table,    // 8-bit quantization table input
+    output reg signed [15:0] quant_out, // 16-bit signed quantized output
+    output reg valid_out,            // Output valid signal
+    output reg done                  // Done signal for 8x8 block
+);
+
+    // Internal registers
+    reg [5:0] counter;              // Counter for 64 elements (8x8)
+    reg signed [31:0] temp_result;  // Temporary result for division
+    reg [2:0] state;                // FSM state
+    reg signed [15:0] dct_reg;      // Register to hold DCT input
+    reg [7:0] quant_reg;            // Register to hold quantization value
+
+    // State machine states
+    localparam IDLE = 3'd0,
+               LOAD = 3'd1,
+               COMPUTE = 3'd2,
+               OUTPUT = 3'd3,
+               DONE = 3'd4;
+
+    // Main FSM
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            counter <= 6'd0;
+            state <= IDLE;
+            valid_out <= 1'b0;
+            done <= 1'b0;
+            quant_out <= 16'd0;
+            dct_reg <= 16'd0;
+            quant_reg <= 8'd0;
+        end else begin
+            case (state)
+                IDLE: begin
+                    valid_out <= 1'b0;
+                    done <= 1'b0;
+                    counter <= 6'd0;
+                    if (start) begin
+                        state <= LOAD;
+                    end
+                end
+
+                LOAD: begin
+                    dct_reg <= dct_in;
+                    quant_reg <= quant_table;
+                    state <= COMPUTE;
+                end
+
+                COMPUTE: begin
+                    // Perform quantization: quant_out = round(dct_in / quant_table)
+                    if (quant_reg != 8'd0) begin
+                        temp_result = dct_in * 256; // Scale for precision
+                        temp_result = temp_result / quant_reg;
+                        // Round to nearest integer
+                        if (temp_result[31]) begin // Negative number
+                            quant_out <= (temp_result[31:8] - (temp_result[7] ? 1 : 0));
+                        end else begin
+                            quant_out <= (temp_result[31:8] + (temp_result[7] ? 1 : 0));
+                        end
+                    end else begin
+                        quant_out <= 16'd0; // Avoid division by zero
+                    end
+                    state <= OUTPUT;
+                end
+
+                OUTPUT: begin
+                    valid_out <= 1'b1;
+                    if (counter == 6'd63) begin
+                        state <= DONE;
+                    end else begin
+                        counter <= counter + 1;
+                        state <= LOAD;
+                    end
+                end
+
+                DONE: begin
+                    valid_out <= 1'b0;
+                    done <= 1'b1;
+                    state <= IDLE;
+                end
+
+                default: state <= IDLE;
+            endcase
+        end
+    end
+endmodule

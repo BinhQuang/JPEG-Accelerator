@@ -1,0 +1,84 @@
+# Reading C:/altera/13.0sp1/modelsim_ase/tcl/vsim/pref.tcl 
+# do JPEG_run_msim_rtl_verilog.do 
+# if {[file exists rtl_work]} {
+# 	vdel -lib rtl_work -all
+# }
+# vlib rtl_work
+# vmap work rtl_work
+# Copying C:\altera\13.0sp1\modelsim_ase\win32aloem/../modelsim.ini to modelsim.ini
+# Modifying modelsim.ini
+# ** Warning: Copied C:\altera\13.0sp1\modelsim_ase\win32aloem/../modelsim.ini to modelsim.ini.
+#          Updated modelsim.ini.
+# 
+# vlog -vlog01compat -work work +incdir+D:/HDL/JPEG {D:/HDL/JPEG/downsampler_420.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module downsampler_420
+# 
+# Top level modules:
+# 	downsampler_420
+# vlog -vlog01compat -work work +incdir+D:/HDL/JPEG {D:/HDL/JPEG/rgb2ycbcr.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module rgb2ycbcr
+# 
+# Top level modules:
+# 	rgb2ycbcr
+# vlog -vlog01compat -work work +incdir+D:/HDL/JPEG {D:/HDL/JPEG/quantizer_1.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module quantizer_1
+# 
+# Top level modules:
+# 	quantizer_1
+# vlog -vlog01compat -work work +incdir+D:/HDL/JPEG {D:/HDL/JPEG/dct_2d.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module dct_2d
+# 
+# Top level modules:
+# 	dct_2d
+# vlog -vlog01compat -work work +incdir+D:/HDL/JPEG {D:/HDL/JPEG/block_splitter.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module block_splitter
+# 
+# Top level modules:
+# 	block_splitter
+# vlog -vlog01compat -work work +incdir+D:/HDL/JPEG {D:/HDL/JPEG/entropy_encoder.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module entropy_encoder
+# 
+# Top level modules:
+# 	entropy_encoder
+# vlog -vlog01compat -work work +incdir+D:/HDL/JPEG {D:/HDL/JPEG/top_module_jpeg.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module top_module_jpeg
+# 
+# Top level modules:
+# 	top_module_jpeg
+# 
+# vlog -vlog01compat -work work +incdir+D:/HDL/JPEG {D:/HDL/JPEG/tb_top_module_jpeg.v}
+# Model Technology ModelSim ALTERA vlog 10.1d Compiler 2012.11 Nov  2 2012
+# -- Compiling module tb_top_module_jpeg
+# 
+# Top level modules:
+# 	tb_top_module_jpeg
+# 
+# vsim -t 1ps -L altera_ver -L lpm_ver -L sgate_ver -L altera_mf_ver -L altera_lnsim_ver -L cycloneii_ver -L rtl_work -L work -voptargs="+acc"  tb_top_module_jpeg
+# vsim -L altera_ver -L lpm_ver -L sgate_ver -L altera_mf_ver -L altera_lnsim_ver -L cycloneii_ver -L rtl_work -L work -voptargs=\"+acc\" -t 1ps tb_top_module_jpeg 
+# Loading work.tb_top_module_jpeg
+# Loading work.top_module_jpeg
+# Loading work.rgb2ycbcr
+# Loading work.downsampler_420
+# Loading work.block_splitter
+# Loading work.dct_2d
+# Loading work.quantizer_1
+# Loading work.entropy_encoder
+# ** Warning: (vsim-3015) D:/HDL/JPEG/top_module_jpeg.v(217): [PCDPC] - Port size (6 or 6) does not match connection size (1) for port 'in_index'. The port definition is at: D:/HDL/JPEG/entropy_encoder.v(5).
+# 
+#         Region: /tb_top_module_jpeg/dut/entropy_y
+# 
+# add wave *
+# view structure
+# .main_pane.structure.interior.cs.body.struct
+# view signals
+# .main_pane.objects.interior.cs.body.tree
+# run -all
+# Break key hit 
+# Simulation stop requested.
